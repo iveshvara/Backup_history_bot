@@ -53,13 +53,22 @@ async def command_start(message: types.Message):
     await menu(message, True)
 
 
+@dp.message_handler(commands=['send'])
+async def command_send(message: types.Message):
+    await send_backup_file()
+
+
 @dp.callback_query_handler(text='cancel')
 async def cancel_entering_task(callback: types.CallbackQuery):
     await menu(callback)
 
 
 async def menu(callback_or_message, new_message=False):
-    cursor.execute("SELECT id_task, path FROM tasks WHERE id_user = ?", (callback_or_message.from_user.id,))
+    if new_message:
+        id_user = callback_or_message.chat.id
+    else:
+        id_user = callback_or_message.from_user.id
+    cursor.execute("SELECT id_task, path FROM tasks WHERE id_user = ?", (id_user,))
     records = cursor.fetchall()
 
     if records is None:
@@ -96,19 +105,27 @@ async def add_a_task(callback: types.CallbackQuery):
 
 @dp.callback_query_handler(text='cancel', state=EnteringTask)
 async def cancel_entering_task(callback: types.CallbackQuery, state: EnteringTask):
+    cursor.execute('DELETE FROM tasks WHERE id_user=? AND path IS NULL', (callback.from_user.id,))
+    connect.commit()
     await state.finish()
-    EnteringTask.id_task = ''
     await callback.message.delete()
     await menu(callback.message, True)
 
 
 @dp.message_handler(state=EnteringTask.part)
-async def part_is_input(message: types.Message):
-    cursor.execute('UPDATE tasks SET path = ? where id_user = ? AND id_task = ?',
-                   (message.text, message.from_user.id, EnteringTask.id_task))
-    connect.commit()
-    await message.delete()
-    await menu(EnteringTask.callback)
+async def part_is_input(message: types.Message, state: EnteringTask):
+    if message.text.__len__() > 10:
+        cursor.execute('UPDATE tasks SET path = ? where id_user = ? AND id_task = ?',
+                       (message.text, message.from_user.id, EnteringTask.id_task))
+        connect.commit()
+        await message.delete()
+        await menu(EnteringTask.callback)
+    else:
+        cursor.execute('DELETE FROM tasks WHERE id_user=? AND path IS NULL', (message.from_user.id,))
+        connect.commit()
+        await state.finish()
+        await message.delete()
+        await menu(EnteringTask.callback)
 
 
 @dp.callback_query_handler(text='Delete a task')
@@ -134,6 +151,11 @@ async def confirm_delete_store(callback: types.CallbackQuery):
     cursor.execute('DELETE FROM tasks WHERE id_task=?', (id_task,))
     connect.commit()
     await delete_a_task(callback)
+
+
+@dp.message_handler()
+async def command_start(message):
+    await message.delete()
 
 
 executor.start_polling(dp, skip_updates=True, on_startup=on_startup)
