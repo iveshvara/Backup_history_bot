@@ -31,14 +31,15 @@ async def on_startup(_):
 
 
 async def scheduler():
-    aioschedule.every().day.at("00:00").do(send_backup_file)
-    while True:
-        await aioschedule.run_pending()
-        await asyncio.sleep(1)
+    aioschedule.every().day.at("12:00").do(send_backup_file)
+    await aioschedule.run_pending()
+    #while True:
+    #    await aioschedule.run_pending()
+    #    await asyncio.sleep(1)
 
 
 async def send_backup_file():
-    cursor.execute("SELECT id_user, path FROM tasks")
+    cursor.execute("SELECT id_user, path FROM tasks WHERE path NOTNULL")
     records = cursor.fetchall()
     for i in records:
         await bot.send_message(i[0], i[1] + ':')
