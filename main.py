@@ -32,10 +32,9 @@ async def on_startup(_):
 
 async def scheduler():
     aioschedule.every().day.at("12:00").do(send_backup_file)
-    await aioschedule.run_pending()
-    #while True:
-    #    await aioschedule.run_pending()
-    #    await asyncio.sleep(1)
+    while True:
+        await aioschedule.run_pending()
+        await asyncio.sleep(1)
 
 
 async def send_backup_file():
