@@ -81,6 +81,7 @@ async def menu(callback_or_message, new_message=False):
     inline_kb = InlineKeyboardMarkup(row_width=1)
     inline_kb.add(InlineKeyboardButton(text='Add a task', callback_data='Add a task'))
     inline_kb.add(InlineKeyboardButton(text='Delete a task', callback_data='Delete a task'))
+    inline_kb.add(InlineKeyboardButton(text='Send tasks', callback_data='Send tasks'))
     if new_message:
         await callback_or_message.answer(text, reply_markup=inline_kb)
     else:
@@ -152,6 +153,11 @@ async def confirm_delete_store(callback: types.CallbackQuery):
     connect.commit()
     await delete_a_task(callback)
 
+
+@dp.callback_query_handler(text='Send tasks')
+async def add_a_task(callback: types.CallbackQuery):
+    await send_backup_file()
+    
 
 @dp.message_handler()
 async def command_start(message):
