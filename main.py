@@ -4,11 +4,12 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.utils import executor
 from aiogram import types
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, InputFile
 from settings import TOKEN
 import sqlite3
 import asyncio
 import aioschedule
+import time
 
 bot = Bot(TOKEN)
 dp = Dispatcher(bot, storage=MemoryStorage())
@@ -34,23 +35,33 @@ async def scheduler():
     aioschedule.every().day.at("12:00").do(send_backup_file)
     while True:
         await aioschedule.run_pending()
-        await asyncio.sleep(1)
+        await asyncio.sleep(86400)
 
 
 async def send_backup_file():
     cursor.execute("SELECT id_user, path FROM tasks WHERE path NOTNULL")
     records = cursor.fetchall()
     for i in records:
-        await bot.send_message(i[0], i[1] + ':')
+        # await bot.send_message(i[0], i[1] + ':')
+        id_user = i[0]
+        file_path = i[1]
+        file_extension = file_path.split('/')[-1].split('.')[-1]
+        millis = int(round(time.time() * 1000))
+        file_name = file_path.split('/')[-2] + '_' + str(millis) + '.' + file_extension
         try:
-            await bot.send_document(i[0], open(i[1], 'rb'))
+            # await bot.send_document(id_user, open(file_path, 'rb'), caption=file_name)
+            # base_file = open(file_path, 'rb')
+            base_file = InputFile(open(file_path, 'rb'))
+            base_file.filename = file_name
+            await bot.send_document(id_user, base_file)
         except:
-            await bot.send_message(i[0], "file not found")
+            await bot.send_message(id_user, "File not found:\n" + file_path)
 
 
 @dp.message_handler(commands=['start', 'menu'])
 async def command_start(message: types.Message):
-    await menu(message, True)
+    if message.from_user.id == 46904056:
+        await menu(message, True)
 
 
 @dp.message_handler(commands=['send'])
@@ -157,6 +168,7 @@ async def confirm_delete_store(callback: types.CallbackQuery):
 @dp.callback_query_handler(text='Send tasks')
 async def add_a_task(callback: types.CallbackQuery):
     await send_backup_file()
+    await callback.answer()
     
 
 @dp.message_handler()
